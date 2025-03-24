@@ -3,18 +3,12 @@ import json
 import logging
 from io import BytesIO
 
-from openai import OpenAI
-
+from app.core.client import client
 from app.config import settings
 from app.core.prompt import extract_prompt
 from app.model.extracted_model import InvoiceInfo
 
 logger = logging.getLogger(__name__)
-
-# Initialize the OpenAI client
-client = OpenAI(
-    api_key=settings.OPENAI_API_KEY, organization=settings.OPENAI_ORGANIZATION
-)
 
 
 def encode_image_to_base64(image):
@@ -27,7 +21,7 @@ def extract_info(image):
     try:
         base64_image = encode_image_to_base64(image)
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model=settings.OPENAI_MODEL,
             messages=[
                 {
                     "role": "user",

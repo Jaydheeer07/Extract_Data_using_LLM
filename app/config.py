@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
     OPENAI_ORGANIZATION: str
 
+    # OpenAI model configuration
+    OPENAI_MODEL: str
+
     # Upload Configuration
     UPLOAD_DIR: str = "uploads"
     MAX_UPLOAD_SIZE: int = 10 * 1024 * 1024  # 10MB
