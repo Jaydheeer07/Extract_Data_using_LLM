@@ -1,20 +1,22 @@
 # PDF Data Extraction with LLM
 
-A FastAPI application that extracts structured data from invoice and statement PDFs using OpenAI's GPT-4 Vision API. The application converts PDF documents to images and uses advanced AI to accurately extract key information such as invoice numbers, dates, amounts, and line items.
+A Streamlit application that extracts structured data from invoice and statement PDFs using OpenAI's GPT-4 Vision API. The application converts PDF documents to images and uses advanced AI to accurately extract key information such as invoice numbers, dates, amounts, and line items. Data can be stored in a PostgreSQL database for historical tracking.
 
 ## Features
 
 - PDF to Image conversion using PyMuPDF
 - Support for both invoices and statements
 - Structured data extraction with GPT-4 Vision API
-- JSON response with validated data structure
-- Comprehensive error handling and logging
+- User-friendly Streamlit interface
+- PostgreSQL database integration for data storage
+- Document history tracking
 - Decimal precision for financial amounts
 - Support for line items with GST
 
 ## Requirements
 
 ```txt
+streamlit
 fastapi
 uvicorn
 python-multipart
@@ -23,6 +25,7 @@ PyMuPDF
 Pillow
 pydantic
 python-dateutil
+psycopg2-binary
 ```
 
 ## Setup
@@ -32,13 +35,76 @@ python-dateutil
    ```bash
    pip install -r requirements.txt
    ```
-3. Set up your environment variables:
+3. Set up your environment variables in a `.env` file:
    ```bash
    OPENAI_API_KEY=your_api_key
    OPENAI_ORGANIZATION=your_org_id  # Optional
+   SUPABASE_URL=postgresql://username:password@host:port/database
    ```
 
-## API Endpoints
+## PostgreSQL Setup
+
+To use the database functionality, you need to set up the following tables in your PostgreSQL database:
+
+### 1. Invoices Table
+```sql
+CREATE TABLE invoices (
+  id SERIAL PRIMARY KEY,
+  document_type TEXT NOT NULL,
+  invoice_number TEXT,
+  invoice_date DATE,
+  total_amount DECIMAL(10,2) NOT NULL,
+  vendor_name TEXT NOT NULL,
+  customer_name TEXT NOT NULL,
+  due_date DATE,
+  tax_amount DECIMAL(10,2),
+  PO_number TEXT,
+  reference TEXT,
+  line_items JSONB,
+  uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  filename TEXT
+);
+```
+
+### 2. Statements Table
+```sql
+CREATE TABLE statements (
+  id SERIAL PRIMARY KEY,
+  document_type TEXT NOT NULL,
+  statement_date DATE,
+  total_amount DECIMAL(10,2) NOT NULL,
+  vendor_name TEXT NOT NULL,
+  customer_name TEXT NOT NULL,
+  reference TEXT,
+  statement_due_date DATE,
+  PO_number TEXT,
+  line_items JSONB,
+  uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  filename TEXT
+);
+```
+
+## Running the Application
+
+### Streamlit App
+```bash
+streamlit run streamlit_app.py
+```
+
+### FastAPI (Legacy)
+```bash
+uvicorn app.main:app --reload
+```
+
+## Deployment
+
+### Streamlit Cloud Deployment
+1. Push your code to a GitHub repository
+2. Connect your repository to Streamlit Cloud
+3. Set the required environment variables in the Streamlit Cloud dashboard
+4. Deploy the application
+
+## API Endpoints (FastAPI Version)
 
 ### POST /upload
 Upload a PDF file (invoice or statement) for data extraction.
@@ -101,15 +167,6 @@ The application includes comprehensive error handling for:
 - Data validation errors
 
 All errors are logged to both console and file (app.log) with appropriate detail levels.
-
-## Running the Application
-
-Start the server:
-```bash
-uvicorn app.main:app --reload
-```
-
-The API will be available at `http://localhost:8000`
 
 ## Logging
 

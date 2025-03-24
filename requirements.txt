@@ -7,3 +7,4 @@ PyMuPDF>=1.23.7
 Pillow>=10.1.0
 pydantic>=2.5.2
 python-dateutil>=2.8.2
+psycopg2-binary>=2.9.9

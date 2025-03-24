@@ -15,7 +15,10 @@ class Settings(BaseSettings):
     OPENAI_ORGANIZATION: str
 
     # OpenAI model configuration
-    OPENAI_MODEL: str
+    OPENAI_MODEL: str 
+
+    # Database Configuration
+    POSTGRES_CONNECTION_STRING: str = None
 
     # Upload Configuration
     UPLOAD_DIR: str = "uploads"
@@ -24,6 +27,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "allow"  # Allow extra fields in the settings
 
 
 @lru_cache()

@@ -2,11 +2,14 @@ import streamlit as st
 import logging
 import io
 import json
+from datetime import datetime
+import os
 from typing import Dict, Any, List
 
 from app.core.convert_to_image import pdf_to_image
 from app.core.llm import extract_info, parse_and_validate_llm_output
 from app.model.extracted_model import LineItem
+from app.core.supabase_client import postgres
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -28,14 +31,171 @@ def display_line_items(line_items: List[LineItem]):
     }
     
     for item in line_items:
-        data["Description"].append(item.description)
-        data["Quantity"].append(item.quantity if item.quantity is not None else "")
-        data["Unit Price"].append(f"${item.unit_price}" if item.unit_price is not None else "")
-        data["Total Price"].append(f"${item.total_price}")
-        data["GST"].append(f"${item.gst}" if item.gst is not None else "")
+        # Handle both LineItem objects and dictionaries
+        if isinstance(item, dict):
+            data["Description"].append(item.get("description", ""))
+            data["Quantity"].append(item.get("quantity", "") if item.get("quantity") is not None else "")
+            data["Unit Price"].append(f"${item.get('unit_price', '')}" if item.get("unit_price") is not None else "")
+            data["Total Price"].append(f"${item.get('total_price', '')}")
+            data["GST"].append(f"${item.get('gst', '')}" if item.get("gst") is not None else "")
+        else:
+            data["Description"].append(item.description)
+            data["Quantity"].append(item.quantity if item.quantity is not None else "")
+            data["Unit Price"].append(f"${item.unit_price}" if item.unit_price is not None else "")
+            data["Total Price"].append(f"${item.total_price}")
+            data["GST"].append(f"${item.gst}" if item.gst is not None else "")
     
     # Display the table
     st.table(data)
+
+def save_to_database(invoice_data, filename):
+    """Save extracted data to PostgreSQL database"""
+    if not postgres.is_connected():
+        st.error("⚠️ Database connection not configured. Please set POSTGRES_CONNECTION_STRING environment variable with your PostgreSQL connection string.")
+        return False
+    
+    result = postgres.save_invoice(invoice_data, filename)
+    
+    if result["success"]:
+        st.success(f"✅ Successfully saved to {result['table']} table with ID: {result['record_id']}")
+        return True
+    else:
+        st.error(f"❌ Failed to save to database: {result.get('error', 'Unknown error')}")
+        return False
+
+def display_history():
+    """Display history of processed documents"""
+    if not postgres.is_connected():
+        st.info("Connect to PostgreSQL database to view document history")
+        return
+    
+    try:
+        result = postgres.get_recent_documents(limit=5)
+        
+        if not result["success"]:
+            st.error(f"Failed to fetch history: {result.get('error')}")
+            return
+            
+        if not result["invoices"] and not result["statements"]:
+            st.info("No documents found in the database")
+            return
+            
+        st.subheader("📚 Recent Documents")
+        
+        # Display invoices
+        if result["invoices"]:
+            st.write("**Recent Invoices**")
+            invoice_data = {
+                "Invoice #": [],
+                "Vendor": [],
+                "Date": [],
+                "Amount": [],
+                "Uploaded": []
+            }
+            
+            for inv in result["invoices"]:
+                invoice_data["Invoice #"].append(inv.get("invoice_number", "N/A"))
+                invoice_data["Vendor"].append(inv.get("vendor_name", "N/A"))
+                invoice_data["Date"].append(inv.get("invoice_date", "N/A"))
+                invoice_data["Amount"].append(f"${inv.get('total_amount', 'N/A')}")
+                uploaded_at = inv.get("uploaded_at", "N/A")
+                # Handle datetime objects from psycopg2
+                if hasattr(uploaded_at, 'strftime'):
+                    uploaded_at = uploaded_at.strftime("%Y-%m-%d")
+                elif isinstance(uploaded_at, str) and "T" in uploaded_at:
+                    uploaded_at = uploaded_at.split("T")[0]
+                invoice_data["Uploaded"].append(uploaded_at)
+            
+            st.dataframe(invoice_data, use_container_width=True)
+            
+            # Allow viewing line items for selected invoice
+            if len(result["invoices"]) > 0:
+                invoice_options = {f"{inv.get('invoice_number', 'Unknown')} - {inv.get('vendor_name', 'Unknown')}": i 
+                                  for i, inv in enumerate(result["invoices"])}
+                
+                selected_invoice = st.selectbox("Select an invoice to view line items:", 
+                                               options=list(invoice_options.keys()),
+                                               index=None)
+                
+                if selected_invoice:
+                    inv_index = invoice_options[selected_invoice]
+                    invoice = result["invoices"][inv_index]
+                    
+                    # Display invoice details
+                    st.write(f"**Invoice Details:** {invoice.get('invoice_number', 'N/A')}")
+                    
+                    # Display line items if available
+                    line_items = invoice.get("line_items", [])
+                    if line_items:
+                        # Handle JSON string or Python object
+                        if isinstance(line_items, str):
+                            try:
+                                line_items = json.loads(line_items)
+                            except:
+                                line_items = []
+                        
+                        st.write("**Line Items:**")
+                        display_line_items(line_items)
+                    else:
+                        st.write("No line items found for this invoice")
+        
+        # Display statements
+        if result["statements"]:
+            st.write("**Recent Statements**")
+            statement_data = {
+                "Vendor": [],
+                "Date": [],
+                "Amount": [],
+                "Uploaded": []
+            }
+            
+            for stmt in result["statements"]:
+                statement_data["Vendor"].append(stmt.get("vendor_name", "N/A"))
+                statement_data["Date"].append(stmt.get("statement_date", "N/A"))
+                statement_data["Amount"].append(f"${stmt.get('total_amount', 'N/A')}")
+                uploaded_at = stmt.get("uploaded_at", "N/A")
+                # Handle datetime objects from psycopg2
+                if hasattr(uploaded_at, 'strftime'):
+                    uploaded_at = uploaded_at.strftime("%Y-%m-%d")
+                elif isinstance(uploaded_at, str) and "T" in uploaded_at:
+                    uploaded_at = uploaded_at.split("T")[0]
+                statement_data["Uploaded"].append(uploaded_at)
+            
+            st.dataframe(statement_data, use_container_width=True)
+            
+            # Allow viewing line items for selected statement
+            if len(result["statements"]) > 0:
+                statement_options = {f"{stmt.get('vendor_name', 'Unknown')} - {stmt.get('statement_date', 'Unknown')}": i 
+                                   for i, stmt in enumerate(result["statements"])}
+                
+                selected_statement = st.selectbox("Select a statement to view line items:", 
+                                                options=list(statement_options.keys()),
+                                                index=None)
+                
+                if selected_statement:
+                    stmt_index = statement_options[selected_statement]
+                    statement = result["statements"][stmt_index]
+                    
+                    # Display statement details
+                    st.write(f"**Statement Details:** {statement.get('vendor_name', 'N/A')} - {statement.get('statement_date', 'N/A')}")
+                    
+                    # Display line items if available
+                    line_items = statement.get("line_items", [])
+                    if line_items:
+                        # Handle JSON string or Python object
+                        if isinstance(line_items, str):
+                            try:
+                                line_items = json.loads(line_items)
+                            except:
+                                line_items = []
+                        
+                        st.write("**Line Items:**")
+                        display_line_items(line_items)
+                    else:
+                        st.write("No line items found for this statement")
+            
+    except Exception as e:
+        st.error(f"Error displaying history: {str(e)}")
 
 # Set page config
 st.set_page_config(
@@ -60,108 +220,148 @@ st.markdown("""
         border-radius: 0.3rem;
         margin: 0.2rem 0;
     }
+    .stButton button {
+        width: 100%;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# Add title and description
-st.title("📄 Invoice Data Extractor")
-st.markdown("""
-This app extracts key information from invoice and statement PDFs using AI. 
-Simply upload your PDF invoice/statement and get structured data in return.
-""")
+# Create tabs for different sections
+tab1, tab2 = st.tabs(["📝 Extract Data", "📚 History"])
 
-# File uploader
-uploaded_file = st.file_uploader("Choose a PDF invoice/statement", type=['pdf'])
+with tab1:
+    # Add title and description
+    st.title("📄 Invoice Data Extractor")
+    st.markdown("""
+    This app extracts key information from invoice and statement PDFs using AI. 
+    Simply upload your PDF invoice/statement and get structured data in return.
+    """)
 
-if uploaded_file is not None:
-    try:
-        # Show processing message
-        with st.spinner('Processing your invoice/statement...'):
-            # Read PDF file
-            pdf_bytes = uploaded_file.read()
-            logger.info("Received PDF file: %s", uploaded_file.name)
+    # Check database connection
+    db_status = "✅ Connected to database" if postgres.is_connected() else "⚠️ Not connected to database"
+    st.sidebar.write(f"**Database Status:** {db_status}")
 
-            # Convert PDF to images
-            images = pdf_to_image(pdf_bytes)
-            logger.info("Converted PDF to %d images", len(images))
+    if not postgres.is_connected():
+        st.sidebar.info("To enable database storage, set POSTGRES_CONNECTION_STRING environment variable with your PostgreSQL connection string.")
 
-            if not images:
-                st.error("No images were extracted from the PDF. Please check if the PDF is valid.")
-            else:
-                # Extract information using LLM
-                extracted_info = extract_info(images[0])
-                logger.info("Extracted info: %s", str(extracted_info))
+    # File uploader
+    uploaded_file = st.file_uploader("Choose a PDF invoice/statement", type=['pdf'])
 
-                # Parse and validate the LLM output
-                parsed_info = parse_and_validate_llm_output(extracted_info)
-                logger.info("Parsed info: %s", str(parsed_info))
+    # Store parsed info in session state to access it later
+    if 'parsed_info' not in st.session_state:
+        st.session_state.parsed_info = None
+    if 'filename' not in st.session_state:
+        st.session_state.filename = None
 
-                # Display results
-                if isinstance(parsed_info, dict) and "error" in parsed_info:
-                    st.error(f"Error: {parsed_info['error']}")
+    if uploaded_file is not None:
+        try:
+            # Show processing message
+            with st.spinner('Processing your invoice/statement...'):
+                # Read PDF file
+                pdf_bytes = uploaded_file.read()
+                logger.info("Received PDF file: %s", uploaded_file.name)
+                
+                # Store filename in session state
+                st.session_state.filename = uploaded_file.name
+
+                # Convert PDF to images
+                images = pdf_to_image(pdf_bytes)
+                logger.info("Converted PDF to %d images", len(images))
+
+                if not images:
+                    st.error("No images were extracted from the PDF. Please check if the PDF is valid.")
                 else:
-                    st.success("Successfully extracted invoice data!")
-                    
-                    # Create two columns with adjusted ratio
-                    col1, col2 = st.columns([3, 2])
-                    
-                    # Display the extracted information in an organized way
-                    with col1:
-                        st.subheader("📋 Invoice Details")
-                        info_dict = parsed_info.model_dump()
-                        
-                        # Create three columns for better layout of basic info
-                        c1, c2, c3 = st.columns(3)
-                        
-                        with c1:
-                            st.markdown("**Invoice Number**")
-                            st.markdown(f"<div class='invoice-field'>{info_dict.get('invoice_number', 'N/A')}</div>", unsafe_allow_html=True)
-                            
-                            st.markdown("**Invoice Date**")
-                            st.markdown(f"<div class='invoice-field'>{info_dict.get('invoice_date', 'N/A')}</div>", unsafe_allow_html=True)
-                        
-                        with c2:
-                            st.markdown("**Vendor Name**")
-                            st.markdown(f"<div class='invoice-field'>{info_dict.get('vendor_name', 'N/A')}</div>", unsafe_allow_html=True)
-                            
-                            st.markdown("**Customer Name**")
-                            st.markdown(f"<div class='invoice-field'>{info_dict.get('customer_name', 'N/A')}</div>", unsafe_allow_html=True)
-                        
-                        with c3:
-                            st.markdown("**Total Amount**")
-                            st.markdown(f"<div class='invoice-field'>${info_dict.get('total_amount', 'N/A')}</div>", unsafe_allow_html=True)
-                            
-                            st.markdown("**Tax Amount**")
-                            st.markdown(f"<div class='invoice-field'>${info_dict.get('tax_amount', 'N/A') if info_dict.get('tax_amount') else 'N/A'}</div>", unsafe_allow_html=True)
-                        
-                        # Display line items in a table
-                        st.subheader("📝 Line Items")
-                        display_line_items(parsed_info.line_items if parsed_info.line_items else [])
-                        
-                        # Display additional fields
-                        st.subheader("📌 Additional Information")
-                        additional_fields = {
-                            "PO Number": info_dict.get('PO_number', 'N/A'),
-                            "Statement Date": info_dict.get('statement_date', 'N/A'),
-                            "Due Date": info_dict.get('due_date', 'N/A'),
-                            "Reference": info_dict.get('reference', 'N/A')
-                        }
-                        
-                        # Create two columns for additional fields
-                        ac1, ac2 = st.columns(2)
-                        for i, (key, value) in enumerate(additional_fields.items()):
-                            with ac1 if i % 2 == 0 else ac2:
-                                st.markdown(f"**{key}**")
-                                st.markdown(f"<div class='invoice-field'>{value}</div>", unsafe_allow_html=True)
-                    
-                    with col2:
-                        st.subheader("🔍 Preview")
-                        # Use use_container_width instead of use_column_width
-                        st.image(images[0], caption="Invoice Preview", use_container_width=True)
+                    # Extract information using LLM
+                    extracted_info = extract_info(images[0])
+                    logger.info("Extracted info: %s", str(extracted_info))
 
-    except Exception as e:
-        logger.error("Error processing file: %s", str(e))
-        st.error(f"An error occurred while processing the file: {str(e)}")
+                    # Parse and validate the LLM output
+                    parsed_info = parse_and_validate_llm_output(extracted_info)
+                    logger.info("Parsed info: %s", str(parsed_info))
+                    
+                    # Store parsed info in session state
+                    st.session_state.parsed_info = parsed_info
+
+                    # Display the extracted information
+                    if not parsed_info:
+                        st.error("Failed to extract valid information from the invoice/statement.")
+                    else:
+                        doc_type = parsed_info.document_type.capitalize()
+                        st.success(f"✅ Successfully extracted {doc_type} data!")
+                        
+                        # Create two columns with adjusted ratio
+                        col1, col2 = st.columns([1, 1])
+                        
+                        with col1:
+                            # Display the first image
+                            st.subheader("Document Preview")
+                            st.image(images[0], use_container_width=True)
+                        
+                        with col2:
+                            # Display extracted information
+                            st.subheader("Extracted Information")
+                            
+                            if parsed_info.document_type == "invoice":
+                                # Display invoice information
+                                st.markdown(f"**Invoice Number:** {parsed_info.invoice_number or 'N/A'}")
+                                st.markdown(f"**Invoice Date:** {parsed_info.invoice_date or 'N/A'}")
+                                st.markdown(f"**Due Date:** {parsed_info.due_date or 'N/A'}")
+                                st.markdown(f"**Total Amount:** ${parsed_info.total_amount}")
+                                st.markdown(f"**Vendor:** {parsed_info.vendor_name or 'N/A'}")
+                                st.markdown(f"**Customer:** {parsed_info.customer_name or 'N/A'}")
+                                
+                                if parsed_info.tax_amount:
+                                    st.markdown(f"**Tax Amount:** ${parsed_info.tax_amount}")
+                                
+                                if parsed_info.PO_number:
+                                    st.markdown(f"**PO Number:** {parsed_info.PO_number}")
+                                
+                                if parsed_info.reference:
+                                    st.markdown(f"**Reference:** {parsed_info.reference}")
+                            else:
+                                # Display statement information
+                                st.markdown(f"**Statement Date:** {parsed_info.statement_date or 'N/A'}")
+                                st.markdown(f"**Total Amount:** ${parsed_info.total_amount}")
+                                st.markdown(f"**Vendor:** {parsed_info.vendor_name or 'N/A'}")
+                                st.markdown(f"**Customer:** {parsed_info.customer_name or 'N/A'}")
+                                
+                                if parsed_info.reference:
+                                    st.markdown(f"**Reference:** {parsed_info.reference}")
+                            
+                            # Line items section
+                            if parsed_info.line_items:
+                                st.subheader("Line Items")
+                                display_line_items(parsed_info.line_items)
+                            
+                            # Save to database button
+                            if postgres.is_connected():
+                                if st.button("💾 Save to Database"):
+                                    save_to_database(parsed_info, st.session_state.filename)
+                            else:
+                                st.info("Database connection not available. Connect to save data.")
+                            
+                            # Download JSON button
+                            json_data = parsed_info.model_dump_json(indent=2)
+                            st.download_button(
+                                label="📥 Download JSON",
+                                data=json_data,
+                                file_name=f"{uploaded_file.name.split('.')[0]}_extracted.json",
+                                mime="application/json"
+                            )
+        except Exception as e:
+            logger.error("Error processing file: %s", str(e))
+            st.error(f"An error occurred while processing the file: {str(e)}")
+
+with tab2:
+    st.title("📚 Document History")
+    st.markdown("View previously processed documents stored in the database.")
+    
+    # Display history
+    display_history()
+    
+    # Refresh button
+    if st.button("🔄 Refresh History"):
+        st.experimental_rerun()
 
 # Add footer
 st.markdown("---")
