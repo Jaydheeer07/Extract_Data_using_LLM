@@ -47,21 +47,21 @@ class PostgresClient:
                     return False
         return False
     
-    def save_invoice(self, invoice_data: InvoiceInfo, filename: str) -> Dict[str, Any]:
+    def save_invoice(self, invoice_data: Dict[str, Any], filename: str) -> Dict[str, Any]:
         """Save invoice data to PostgreSQL"""
         if not self.is_connected():
             return {"success": False, "error": "PostgreSQL client not connected"}
         
         try:
             # Determine document type and table
-            document_type = invoice_data.document_type
+            document_type = invoice_data.get("document_type")
+            if not document_type:
+                return {"success": False, "error": "Missing document_type in data"}
+                
             table_name = "invoices" if document_type == "invoice" else "statements"
             
-            # Convert invoice data to dict
-            invoice_dict = invoice_data.model_dump()
-            
             # Extract line items and convert to JSON
-            line_items = invoice_dict.pop("line_items", [])
+            line_items = invoice_data.pop("line_items", [])
             line_items_json = Json([item.model_dump() if hasattr(item, 'model_dump') else item for item in line_items])
             
             # Define fields for each table
@@ -79,7 +79,7 @@ class PostgresClient:
             
             # Create a new dict with only the fields for the specific table
             allowed_fields = invoice_fields if table_name == "invoices" else statement_fields
-            filtered_dict = {k: v for k, v in invoice_dict.items() if k in allowed_fields}
+            filtered_dict = {k: v for k, v in invoice_data.items() if k in allowed_fields}
             
             # Add line items as JSON and metadata
             filtered_dict["line_items"] = line_items_json
