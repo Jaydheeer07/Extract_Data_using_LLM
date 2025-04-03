@@ -32,10 +32,25 @@ def display_extract_data_tab():
     col1, col2 = st.columns([2, 1])
 
     with col1:
-        # File uploader
+        # File uploader for PDF documents
         uploaded_file = st.file_uploader(
-            "Upload an invoice or statement PDF", type=["pdf"]
+            "Upload an invoice or statement PDF",
+            type="pdf",
+            help="Upload a PDF file to extract data",
+            key="pdf_uploader"
         )
+        
+        # Check if we need to reprocess a file due to model change
+        reprocess_file = False
+        if "reprocess_file" in st.session_state and st.session_state["reprocess_file"]:
+            reprocess_file = True
+            st.session_state["reprocess_file"] = False  # Reset the flag
+            logger.info("Reprocessing last file with new model")
+            
+            # Show a message about reprocessing if we have a filename
+            if "last_uploaded_filename" in st.session_state:
+                filename = st.session_state["last_uploaded_filename"]
+                st.info(f"Reprocessing {filename} with model: {st.session_state.get('selected_model', 'Unknown')}")
 
     with col2:
         st.markdown("""
@@ -45,13 +60,37 @@ def display_extract_data_tab():
         - ✅ Bills
         """)
 
-    if uploaded_file is not None:
+    # Handle reprocessing case - if model changed and we have stored file bytes
+    reprocess_file = False
+    pdf_bytes = None
+    filename = None
+    
+    if "reprocess_file" in st.session_state and st.session_state["reprocess_file"]:
+        if "last_uploaded_filename" in st.session_state and "last_uploaded_file_bytes" in st.session_state:
+            reprocess_file = True
+            pdf_bytes = st.session_state["last_uploaded_file_bytes"]
+            filename = st.session_state["last_uploaded_filename"]
+            logger.info(f"Reprocessing file {filename} with new model")
+        st.session_state["reprocess_file"] = False  # Reset the flag
+    
+    # Process either uploaded file or reprocessed file
+    if uploaded_file is not None or reprocess_file:
         try:
             # Show processing message with progress
             with st.status("Processing your document...", expanded=True) as status:
-                # Read PDF file
-                pdf_bytes = uploaded_file.read()
-                logger.info("Received PDF file: %s", uploaded_file.name)
+                # Get file bytes - either from uploaded file or from session state
+                if uploaded_file is not None:
+                    # New file upload case
+                    pdf_bytes = uploaded_file.read()
+                    filename = uploaded_file.name
+                    logger.info(f"Received PDF file: {filename}")
+                    
+                    # Store for potential reprocessing with different models
+                    st.session_state["last_uploaded_filename"] = filename
+                    st.session_state["last_uploaded_file_bytes"] = pdf_bytes
+                else:
+                    # Reprocessing case - already have bytes from above
+                    logger.info(f"Reprocessing file: {filename}")
 
                 # Convert PDF to image
                 status.update(
@@ -64,22 +103,41 @@ def display_extract_data_tab():
                         "❌ Failed to convert PDF to image. Please try another file."
                     )
                 else:
-                    # Extract information using LLM
-                    status.update(
-                        label="Extracting data with AI...",
-                        state="running",
-                        expanded=True,
-                    )
-                    extracted_info = extract_info(images[0])
-                    logger.info("Extracted info: %s", str(extracted_info))
+                    # Get current model
+                    current_model = st.session_state.get("selected_model", "Unknown")
+                    
+                    # Create a model-specific key for caching
+                    file_model_key = f"extracted_{filename}_{current_model}"
+                    
+                    # Check if we have results for this file with the current model
+                    if file_model_key not in st.session_state:
+                        # Extract information using LLM
+                        status.update(
+                            label=f"Extracting data with {current_model}...",
+                            state="running",
+                            expanded=True,
+                        )
+                        extracted_info = extract_info(images[0])
+                        logger.info("Extracted info: %s", str(extracted_info))
 
-                    # Parse and validate LLM output
-                    status.update(
-                        label="Validating extracted data...",
-                        state="running",
-                        expanded=True,
-                    )
-                    parsed_data = parse_and_validate_llm_output(extracted_info)
+                        # Parse and validate LLM output
+                        status.update(
+                            label="Validating extracted data...",
+                            state="running",
+                            expanded=True,
+                        )
+                        parsed_data = parse_and_validate_llm_output(extracted_info)
+                        
+                        # Store in session state with model-specific key
+                        st.session_state[file_model_key] = parsed_data
+                        
+                        # Store the file information in session state for reuse
+                        st.session_state["last_uploaded_filename"] = uploaded_file.name
+                        st.session_state["last_uploaded_file_bytes"] = pdf_bytes
+                    else:
+                        # Use cached results from session state for this model
+                        parsed_data = st.session_state[file_model_key]
+                        logger.info(f"Using cached extraction results for {uploaded_file.name} with model {current_model}")
 
                     # Complete the status
                     status.update(

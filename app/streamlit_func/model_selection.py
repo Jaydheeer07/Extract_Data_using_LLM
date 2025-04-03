@@ -59,10 +59,26 @@ def display_model_selection():
     selected_model = selected_model_details["id"]
     
     # Store the selected model in session state so it can be accessed elsewhere
+    model_changed = False
     if "selected_model" not in st.session_state or st.session_state.selected_model != selected_model:
+        # Record that the model has changed
+        model_changed = True
         st.session_state.selected_model = selected_model
         # Log the model change
         logger.info(f"Model changed to: {selected_model}")
+        
+        # If we have a previously uploaded file, set a flag to re-process it
+        if "last_uploaded_filename" in st.session_state and "last_uploaded_file_bytes" in st.session_state:
+            st.session_state["reprocess_file"] = True
+            logger.info(f"Model changed - will reprocess last uploaded file with new model: {selected_model}")
+            
+            # Clear any existing rating and comment data
+            filename = st.session_state["last_uploaded_filename"]
+            # Reset rating to 0 (no rating)
+            for key in list(st.session_state.keys()):
+                # Clear rating and comment fields for this file
+                if key.startswith("rating_") or key.startswith("comment_"):
+                    del st.session_state[key]
     
     # Display enhanced model info card
     st.markdown(

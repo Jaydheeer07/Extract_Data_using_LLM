@@ -53,13 +53,14 @@ def display_rating_component(filename, document_type, model=None, show_in_histor
     current_rating = st.session_state[f"rating_{key_suffix}"]
     current_display = list(rating_options.keys())[list(rating_options.values()).index(current_rating)]
     
-    # Create the radio buttons
+    # Create the radio buttons with a proper label that we'll hide with CSS
     selected_display = st.radio(
-        "",
+        "Star Rating",  # Provide a proper label for accessibility
         options=list(rating_options.keys()),
         index=list(rating_options.values()).index(current_rating),
         key=f"rating_radio_{key_suffix}",
-        horizontal=True
+        horizontal=True,
+        label_visibility="collapsed"  # Hide the label visually but keep it for accessibility
     )
     
     # Update the rating in session state
