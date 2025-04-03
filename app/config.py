@@ -1,8 +1,24 @@
 import os
 from functools import lru_cache
 import streamlit as st
+from typing import Optional
 
 from pydantic_settings import BaseSettings
+
+
+# First check if we're running in Streamlit
+def get_streamlit_secrets():
+    """Get secrets from Streamlit if available"""
+    secrets = {}
+    if 'streamlit' in globals() or 'st' in globals():
+        try:
+            if hasattr(st, 'secrets'):
+                # Convert all keys to uppercase to match environment variable style
+                for key, value in st.secrets.items():
+                    secrets[key.upper()] = value
+        except Exception:
+            pass
+    return secrets
 
 
 class Settings(BaseSettings):
@@ -13,24 +29,24 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Invoice Processing API"
 
     # OpenAI Configuration
-    OPENAI_API_KEY: str = None
-    OPENAI_ORGANIZATION: str = None
+    OPENAI_API_KEY: Optional[str] = None
+    OPENAI_ORGANIZATION: Optional[str] = None
 
     # OpenAI model configuration
-    OPENAI_MODEL: str = None
+    OPENAI_MODEL: Optional[str] = "gpt-4o"
 
     # OpenRouter Configuration
-    OPENROUTER_API_KEY: str = None
-    OPENROUTER_API_BASE: str = None
-    OPENROUTER_MODEL: str = "mistralai/mistral-small-3.1-24b-instruct"
+    OPENROUTER_API_KEY: Optional[str] = None
+    OPENROUTER_API_BASE: Optional[str] = "https://openrouter.ai/api/v1"
+    OPENROUTER_MODEL: Optional[str] = "mistralai/mistral-small-3.1-24b-instruct"
     
     # OpenRouter model options
-    OPENROUTER_MODEL_MISTRAL: str = "mistralai/mistral-small-3.1-24b-instruct"
-    OPENROUTER_MODEL_QWEN: str = "qwen/qwen2.5-vl-32b-instruct:free"
-    OPENROUTER_MODEL_GEMMA: str = "google/gemma-3-12b-it"
+    OPENROUTER_MODEL_MISTRAL: Optional[str] = "mistralai/mistral-small-3.1-24b-instruct"
+    OPENROUTER_MODEL_QWEN: Optional[str] = "qwen/qwen2.5-vl-32b-instruct:free"
+    OPENROUTER_MODEL_GEMMA: Optional[str] = "google/gemma-3-12b-it"
 
     # Database Configuration
-    POSTGRES_CONNECTION_STRING: str = None
+    POSTGRES_CONNECTION_STRING: Optional[str] = None
 
     # Upload Configuration
     UPLOAD_DIR: str = "uploads"
@@ -41,42 +57,26 @@ class Settings(BaseSettings):
         case_sensitive = True
         extra = "allow"  # Allow extra fields in the settings
         
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        
-        # Check for Streamlit secrets and override settings if available
-        if hasattr(st, 'secrets'):
-            # OpenAI settings
-            if 'openai_api_key' in st.secrets:
-                self.OPENAI_API_KEY = st.secrets['openai_api_key']
-            if 'openai_organization' in st.secrets:
-                self.OPENAI_ORGANIZATION = st.secrets['openai_organization']
-            if 'openai_model' in st.secrets:
-                self.OPENAI_MODEL = st.secrets['openai_model']
-                
-            # OpenRouter settings
-            if 'openrouter_api_key' in st.secrets:
-                self.OPENROUTER_API_KEY = st.secrets['openrouter_api_key']
-            if 'openrouter_api_base' in st.secrets:
-                self.OPENROUTER_API_BASE = st.secrets['openrouter_api_base']
-            if 'openrouter_model' in st.secrets:
-                self.OPENROUTER_MODEL = st.secrets['openrouter_model']
-            if 'openrouter_model_mistral' in st.secrets:
-                self.OPENROUTER_MODEL_MISTRAL = st.secrets['openrouter_model_mistral']
-            if 'openrouter_model_qwen' in st.secrets:
-                self.OPENROUTER_MODEL_QWEN = st.secrets['openrouter_model_qwen']
-            if 'openrouter_model_gemma' in st.secrets:
-                self.OPENROUTER_MODEL_GEMMA = st.secrets['openrouter_model_gemma']
-                
-            # Database settings
-            if 'postgres_connection_string' in st.secrets:
-                self.POSTGRES_CONNECTION_STRING = st.secrets['postgres_connection_string']
+        # Allow environment variables to override
+        env_prefix = ""
+        env_file_encoding = "utf-8"
 
 
 @lru_cache()
 def get_settings():
     """Get cached settings."""
-    return Settings()
+    # First try to get settings from Streamlit secrets
+    streamlit_secrets = get_streamlit_secrets()
+    
+    # Create settings with environment variables and then update with Streamlit secrets
+    settings_instance = Settings()
+    
+    # Override with Streamlit secrets if available
+    for key, value in streamlit_secrets.items():
+        if hasattr(settings_instance, key):
+            setattr(settings_instance, key, value)
+    
+    return settings_instance
 
 
 settings = get_settings()
