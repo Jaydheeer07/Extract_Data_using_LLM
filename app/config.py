@@ -17,6 +17,16 @@ class Settings(BaseSettings):
     # OpenAI model configuration
     OPENAI_MODEL: str 
 
+    # OpenRouter Configuration
+    OPENROUTER_API_KEY: str
+    OPENROUTER_API_BASE: str
+    OPENROUTER_MODEL: str
+    
+    # OpenRouter model options
+    OPENROUTER_MODEL_MISTRAL: str 
+    OPENROUTER_MODEL_QWEN: str 
+    OPENROUTER_MODEL_GEMMA: str 
+
     # Database Configuration
     POSTGRES_CONNECTION_STRING: str = None
 

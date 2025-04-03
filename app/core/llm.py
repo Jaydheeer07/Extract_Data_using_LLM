@@ -3,7 +3,7 @@ import json
 import logging
 from io import BytesIO
 
-from app.core.client import client, model
+from app.core.client import client, get_current_model
 from app.config import settings
 from app.core.prompt import extract_prompt
 from app.model.extracted_model import InvoiceInfo
@@ -19,9 +19,13 @@ def encode_image_to_base64(image):
 
 def extract_info(image):
     try:
+        # Get the current model from session state or settings
+        current_model = get_current_model()
+        logger.info(f"Using model for extraction: {current_model}")
+        
         base64_image = encode_image_to_base64(image)
         response = client.chat.completions.create(
-            model=model,
+            model=current_model,
             messages=[
                 {
                     "role": "system",
