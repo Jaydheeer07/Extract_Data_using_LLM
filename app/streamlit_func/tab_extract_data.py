@@ -7,6 +7,7 @@ from app.core.convert_to_image import pdf_to_image
 from app.core.llm import extract_info, parse_and_validate_llm_output
 from app.streamlit_func.display_line_items import display_line_items
 from app.streamlit_func.save_to_database import save_to_database
+from app.streamlit_func.rating_component import display_rating_component
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -235,6 +236,13 @@ def display_extract_data_tab():
                             )
                             display_line_items(parsed_dict["line_items"])
 
+                        # Rating component section - show after successful extraction
+                        st.markdown("<div class='section-divider'></div>", unsafe_allow_html=True)
+                        display_rating_component(
+                            filename=uploaded_file.name,
+                            document_type=parsed_dict.get("document_type", "invoice")
+                        )
+                        
                         # Save to Database section
                         st.markdown(
                             """<div class="save-section">""", unsafe_allow_html=True
@@ -251,7 +259,9 @@ def display_extract_data_tab():
                         with save_col2:
                             if save_clicked:
                                 with st.spinner("Saving to database..."):
-                                    save_to_database(parsed_dict, uploaded_file.name)
+                                    save_result = save_to_database(parsed_dict, uploaded_file.name)
+                                    if save_result:
+                                        st.success("Document saved successfully!")
                             else:
                                 st.markdown(
                                     "Click to save this document to your database for future reference."

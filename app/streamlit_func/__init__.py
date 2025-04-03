@@ -4,6 +4,7 @@ from app.streamlit_func.save_to_database import save_to_database
 from app.streamlit_func.tab_extract_data import display_extract_data_tab
 from app.streamlit_func.tab_document_history import display_document_history_tab
 from app.streamlit_func.model_selection import display_model_selection
+from app.streamlit_func.rating_component import display_rating_component
 
 __all__ = [
     "display_history", 
@@ -11,5 +12,6 @@ __all__ = [
     "save_to_database",
     "display_extract_data_tab",
     "display_document_history_tab",
-    "display_model_selection"
+    "display_model_selection",
+    "display_rating_component"
 ]

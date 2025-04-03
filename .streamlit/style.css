@@ -199,6 +199,74 @@ div[data-testid="stDataFrame"] {
     align-items: center;
 }
 
+/* Rating section styling */
+.rating-section {
+    margin-top: 1rem;
+    padding: 1rem 0;
+}
+
+.rating-section h4 {
+    color: #1E3A8A;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 0.5rem 0;
+}
+
+.rating-description {
+    color: #6B7280;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+/* Style for the star rating buttons */
+.rating-section button[data-testid="baseButton-primary"] {
+    background-color: #FBBF24;
+    border-color: #FBBF24;
+    color: white;
+    font-size: 1.5rem;
+    padding: 0;
+    min-height: 2.5rem;
+    transition: all 0.2s;
+}
+
+.rating-section button[data-testid="baseButton-secondary"] {
+    background-color: transparent;
+    border-color: #E5E7EB;
+    color: #FBBF24;
+    font-size: 1.5rem;
+    padding: 0;
+    min-height: 2.5rem;
+    transition: all 0.2s;
+}
+
+.rating-section button:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 4px rgba(251, 191, 36, 0.3);
+}
+
+/* Hide the star rating hidden buttons */
+[data-testid="stHorizontalBlock"] button[key^="star_"] {
+    height: 0.1rem !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    width: 0.1rem !important;
+    opacity: 0.01;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+/* Comment box styling */
+div[data-testid="stTextArea"] > div > div {
+    border-radius: 8px;
+    border-color: #E5E7EB;
+}
+
+div[data-testid="stTextArea"] > div > div:focus-within {
+    border-color: #2563EB;
+    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.1);
+}
+
 .model-selection-header svg {
     margin-right: 8px;
 }

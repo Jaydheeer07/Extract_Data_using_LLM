@@ -12,6 +12,7 @@ A Streamlit application that extracts structured data from invoice and statement
 - Document history tracking
 - Decimal precision for financial amounts
 - Support for line items with GST
+- Rating system for extraction quality feedback
 
 ## Requirements
 
@@ -81,6 +82,20 @@ CREATE TABLE statements (
   line_items JSONB,
   uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   filename TEXT
+);
+```
+
+### 3. Ratings Table
+```sql
+CREATE TABLE ratings (
+  id SERIAL PRIMARY KEY,
+  filename TEXT NOT NULL,
+  document_type TEXT NOT NULL,
+  model TEXT NOT NULL,
+  rating INTEGER NOT NULL,
+  comment TEXT,
+  document_id INTEGER,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
 

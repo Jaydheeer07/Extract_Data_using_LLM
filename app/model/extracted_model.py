@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, field_validator
 
 class LineItem(BaseModel):
     description: str
-    quantity: Optional[int] = None  # Make quantity optional
+    quantity: Optional[Decimal] = Field(None, max_digits=10, decimal_places=2)  # Allow decimal quantities
     unit_price: Optional[Decimal] = Field(None, max_digits=10, decimal_places=2)
     total_price: Decimal = Field(..., max_digits=10, decimal_places=2)
     gst: Optional[Decimal] = Field(None, max_digits=10, decimal_places=2)
@@ -66,6 +66,8 @@ class InvoiceInfo(BaseModel):
         # Convert Decimal fields in line_items
         if self.line_items:
             for item in data["line_items"]:
+                if "quantity" in item and isinstance(item["quantity"], Decimal):
+                    item["quantity"] = float(item["quantity"])
                 if "unit_price" in item and isinstance(item["unit_price"], Decimal):
                     item["unit_price"] = float(item["unit_price"])
                 if "total_price" in item and isinstance(item["total_price"], Decimal):

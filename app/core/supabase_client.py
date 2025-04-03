@@ -159,6 +159,115 @@ class PostgresClient:
         except Exception as e:
             logger.error(f"Error fetching recent documents: {str(e)}")
             return {"success": False, "error": str(e)}
+            
+    def save_rating(self, filename: str, document_type: str, model: str, rating: int, 
+                   comment: str = None, document_id: int = None) -> Dict[str, Any]:
+        """Save user rating for extraction quality"""
+        if not self.is_connected():
+            return {"success": False, "error": "PostgreSQL client not connected"}
+        
+        try:
+            # Create cursor with dictionary factory
+            with self.connection.cursor(cursor_factory=RealDictCursor) as cursor:
+                # Check if the ratings table exists, create it if not
+                cursor.execute("""
+                CREATE TABLE IF NOT EXISTS ratings (
+                    id SERIAL PRIMARY KEY,
+                    filename TEXT NOT NULL,
+                    document_type TEXT NOT NULL,
+                    model TEXT NOT NULL,
+                    rating INTEGER NOT NULL,
+                    comment TEXT,
+                    document_id INTEGER NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """)
+                
+                # Insert the rating
+                query = """
+                INSERT INTO ratings 
+                (filename, document_type, model, rating, comment, document_id, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """
+                
+                values = (
+                    filename,
+                    document_type,
+                    model,
+                    rating,
+                    comment,
+                    document_id,
+                    datetime.now()
+                )
+                
+                cursor.execute(query, values)
+                result = cursor.fetchone()
+                
+                if not result:
+                    return {"success": False, "error": "Failed to insert rating"}
+                
+                # Get the inserted record ID
+                record_id = result["id"]
+                
+                # Commit the transaction
+                self.connection.commit()
+                
+                return {
+                    "success": True, 
+                    "record_id": record_id
+                }
+            
+        except Exception as e:
+            # Rollback in case of error
+            self.connection.rollback()
+            logger.error(f"Error saving rating to PostgreSQL: {str(e)}")
+            return {"success": False, "error": str(e)}
+            
+    def get_document_ratings(self, document_id: int = None, document_type: str = None) -> Dict[str, Any]:
+        """Get ratings for a specific document or document type"""
+        if not self.is_connected():
+            return {"success": False, "error": "PostgreSQL client not connected"}
+        
+        try:
+            # Create cursor with dictionary factory
+            with self.connection.cursor(cursor_factory=RealDictCursor) as cursor:
+                # Check if the ratings table exists
+                cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'ratings'
+                )
+                """)
+                
+                table_exists = cursor.fetchone()["exists"]
+                if not table_exists:
+                    return {"success": True, "ratings": []}
+                
+                # Build query based on parameters
+                query = "SELECT * FROM ratings"
+                params = []
+                
+                if document_id is not None:
+                    query += " WHERE document_id = %s"
+                    params.append(document_id)
+                elif document_type is not None:
+                    query += " WHERE document_type = %s"
+                    params.append(document_type)
+                
+                query += " ORDER BY created_at DESC"
+                
+                cursor.execute(query, params)
+                ratings = cursor.fetchall()
+                
+                return {
+                    "success": True,
+                    "ratings": ratings
+                }
+            
+        except Exception as e:
+            logger.error(f"Error fetching ratings: {str(e)}")
+            return {"success": False, "error": str(e)}
 
 
 # Create a singleton instance
