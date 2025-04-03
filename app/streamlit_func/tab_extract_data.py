@@ -144,8 +144,10 @@ def display_extract_data_tab():
                                 )
                             with col3:
                                 st.markdown("**Amount**")
+                                total_amount = parsed_dict.get("total_amount")
+                                total_display = f"${total_amount}" if total_amount not in [None, "N/A"] else "N/A"
                                 st.markdown(
-                                    f"""<p class="field-value">${parsed_dict.get("total_amount", "N/A")}</p>""",
+                                    f"""<p class="field-value">{total_display}</p>""",
                                     unsafe_allow_html=True,
                                 )
 
@@ -158,8 +160,10 @@ def display_extract_data_tab():
                                 )
                             with col2:
                                 st.markdown("**GST Amount**")
+                                tax_amount = parsed_dict.get("tax_amount")
+                                tax_display = f"${tax_amount}" if tax_amount not in [None, "N/A"] else "N/A"
                                 st.markdown(
-                                    f"""<p class="field-value">${parsed_dict.get("tax_amount", "N/A")}</p>""",
+                                    f"""<p class="field-value">{tax_display}</p>""",
                                     unsafe_allow_html=True,
                                 )
                             with col3:
@@ -175,7 +179,7 @@ def display_extract_data_tab():
                                 unsafe_allow_html=True,
                             )
 
-                            col1, col2 = st.columns(2)
+                            col1, col2, col3, col4, col5, col6 = st.columns(6)
                             with col1:
                                 st.markdown("**Statement Date**")
                                 st.markdown(
@@ -183,9 +187,37 @@ def display_extract_data_tab():
                                     unsafe_allow_html=True,
                                 )
                             with col2:
-                                st.markdown("**Total Amount**")
+                                st.markdown("**Due Date**")
                                 st.markdown(
-                                    f"""<p class="field-value">${parsed_dict.get("total_amount", "N/A")}</p>""",
+                                    f"""<p class="field-value">{parsed_dict.get("due_date", "N/A")}</p>""",
+                                    unsafe_allow_html=True,
+                                )
+                            with col3:
+                                st.markdown("**Customer Name**")
+                                st.markdown(
+                                    f"""<p class="field-value">{parsed_dict.get("customer_name", "N/A")}</p>""",
+                                    unsafe_allow_html=True,
+                                )
+                            with col4:
+                                st.markdown("**Reference**")
+                                st.markdown(
+                                    f"""<p class="field-value">{parsed_dict.get("reference", "N/A")}</p>""",
+                                    unsafe_allow_html=True,
+                                )
+                            with col5:
+                                st.markdown("**GST/Tax**")
+                                tax_amount = parsed_dict.get("tax_amount")
+                                tax_display = f"${tax_amount}" if tax_amount not in [None, "N/A"] else "N/A"
+                                st.markdown(
+                                    f"""<p class="field-value">{tax_display}</p>""",
+                                    unsafe_allow_html=True,
+                                )
+                            with col6:
+                                st.markdown("**Total Amount**")
+                                total_amount = parsed_dict.get("total_amount")
+                                total_display = f"${total_amount}" if total_amount not in [None, "N/A"] else "N/A"
+                                st.markdown(
+                                    f"""<p class="field-value">{total_display}</p>""",
                                     unsafe_allow_html=True,
                                 )
 

@@ -20,12 +20,12 @@ class Settings(BaseSettings):
     # OpenRouter Configuration
     OPENROUTER_API_KEY: str
     OPENROUTER_API_BASE: str
-    OPENROUTER_MODEL: str
+    OPENROUTER_MODEL: str = "mistralai/mistral-small-3.1-24b-instruct"
     
     # OpenRouter model options
-    OPENROUTER_MODEL_MISTRAL: str 
-    OPENROUTER_MODEL_QWEN: str 
-    OPENROUTER_MODEL_GEMMA: str 
+    OPENROUTER_MODEL_MISTRAL: str = "mistralai/mistral-small-3.1-24b-instruct"
+    OPENROUTER_MODEL_QWEN: str = "qwen/qwen2.5-vl-32b-instruct:free"
+    OPENROUTER_MODEL_GEMMA: str = "google/gemma-3-12b-it"
 
     # Database Configuration
     POSTGRES_CONNECTION_STRING: str = None

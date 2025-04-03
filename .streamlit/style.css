@@ -189,6 +189,64 @@ div[data-testid="stDataFrame"] {
     margin: 1rem 0;
 }
 
+/* Model selection styling */
+.model-selection-header {
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 15px;
+    color: #1E3A8A;
+    display: flex;
+    align-items: center;
+}
+
+.model-selection-header svg {
+    margin-right: 8px;
+}
+
+div[data-testid="stSelectbox"] > div > div > div {
+    background-color: #EFF6FF;
+    border-radius: 12px;
+    padding: 4px 8px;
+    border: 1px solid #BFDBFE;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+div[data-testid="stSelectbox"]:hover > div > div > div {
+    border-color: #93C5FD;
+}
+
+.model-info-card {
+    background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
+    padding: 12px 15px;
+    border-radius: 12px;
+    margin-top: 12px;
+    border: 1px solid #BFDBFE;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease;
+}
+
+.model-info-card:hover {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.model-info-text {
+    font-size: 0.9rem;
+    color: #334155;
+    line-height: 1.4;
+}
+
+.model-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    background-color: #3B82F6;
+    color: white;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    margin-right: 6px;
+    font-weight: 500;
+}
+
 div[data-testid="stDataFrame"] table {
     width: 100%;
     border-collapse: collapse;
