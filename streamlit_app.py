@@ -3,12 +3,12 @@ import logging
 import streamlit as st
 
 from app.core.supabase_client import postgres
+from app.core.convert_to_image import process_file_to_images
 from app.streamlit_func import display_document_history_tab, display_extract_data_tab, display_model_selection
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 
 # Load custom CSS
 def load_css():

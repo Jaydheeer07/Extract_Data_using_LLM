@@ -4,3 +4,6 @@ __pycache__/
 .env
 app.log
 .qodo
+
+# Streamlit secrets
+.streamlit/secrets.toml

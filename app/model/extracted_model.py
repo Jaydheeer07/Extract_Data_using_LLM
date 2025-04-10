@@ -19,7 +19,7 @@ class InvoiceInfo(BaseModel):
     invoice_date: Optional[date] = None  # Optional for statements
     total_amount: Decimal = Field(..., decimal_places=2)  # Required field
     vendor_name: str  # Required field
-    customer_name: str  # Required field
+    customer_name: Optional[str] = None  # Optional field
     due_date: Optional[date] = None  # Optional field
     tax_amount: Optional[Decimal] = Field(None, decimal_places=2)  # Optional field
     line_items: Optional[List[LineItem]] = None  # Optional field

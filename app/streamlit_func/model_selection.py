@@ -43,6 +43,30 @@ def display_model_selection():
             "description": "Qwen's 32B vision-language model with excellent text and image comprehension abilities.",
             "badge": "OPTIMAL",
             "icon": "👁️"
+        },
+        "GPT-4o Mini": {
+            "id": "openai/gpt-4o-mini",
+            "description": "OpenAI's smaller version of GPT-4o with excellent reasoning and instruction following.",
+            "badge": "BALANCED",
+            "icon": "🤖"
+        },
+        "Llama 4 Maverick": {
+            "id": "meta-llama/llama-4-maverick",
+            "description": "Meta's newest Llama 4 Maverick model with strong performance on complex tasks.",
+            "badge": "POWERFUL",
+            "icon": "🦙"
+        },
+        "Gemini 2.0 Flash": {
+            "id": "google/gemini-2.0-flash-001",
+            "description": "Google's Gemini 2.0 Flash model optimized for speed and efficiency.",
+            "badge": "SPEEDY",
+            "icon": "🌟"
+        },
+        "Amazon Nova Lite": {
+            "id": "amazon/nova-lite-v1",
+            "description": "Amazon's Nova Lite model with excellent document understanding capabilities.",
+            "badge": "NEW",
+            "icon": "📊"
         }
     }
     
@@ -50,7 +74,7 @@ def display_model_selection():
     selected_model_name = st.selectbox(
         "Select AI Model",
         options=list(model_options.keys()),
-        index=0,  # Default to the first option (Mistral)
+        index=2,  # Default to Qwen 2.5 VL (32B) which is the third option (index 2)
         help="Choose which AI model to use for data extraction"
     )
     

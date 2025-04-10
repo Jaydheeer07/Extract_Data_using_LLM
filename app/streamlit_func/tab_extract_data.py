@@ -3,7 +3,7 @@ import logging
 
 import streamlit as st
 
-from app.core.convert_to_image import pdf_to_image
+from app.core.convert_to_image import process_file_to_images
 from app.core.llm import extract_info, parse_and_validate_llm_output
 from app.streamlit_func.display_line_items import display_line_items
 from app.streamlit_func.save_to_database import save_to_database
@@ -12,6 +12,11 @@ from app.streamlit_func.rating_component import display_rating_component
 # Configure logging
 logger = logging.getLogger(__name__)
 
+# Allowed file types
+ALLOWED_FILE_TYPES = {
+    "pdf": ["pdf"],
+    "image": ["png", "jpg", "jpeg", "webp"]
+}
 
 def display_extract_data_tab():
     """Display the Extract Data tab content"""
@@ -21,8 +26,8 @@ def display_extract_data_tab():
     st.markdown(
         """
     <div class="info-box">
-    This app extracts key information from invoice and statement PDFs using AI technology.
-    Simply upload a PDF document to get started.
+    This app extracts key information from invoice and statement documents using AI technology.
+    Upload a PDF document or image file to get started.
     </div>
     """,
         unsafe_allow_html=True,
@@ -32,12 +37,13 @@ def display_extract_data_tab():
     col1, col2 = st.columns([2, 1])
 
     with col1:
-        # File uploader for PDF documents
+        # File uploader that accepts both PDF and image files
+        allowed_types = [f".{ext}" for types in ALLOWED_FILE_TYPES.values() for ext in types]
         uploaded_file = st.file_uploader(
-            "Upload an invoice or statement PDF",
-            type="pdf",
-            help="Upload a PDF file to extract data",
-            key="pdf_uploader"
+            "Choose a file",
+            type=allowed_types,
+            help="Upload a PDF document or image file (PNG, JPG, JPEG, WebP)",
+            key="file_uploader"
         )
         
         # Check if we need to reprocess a file due to model change
@@ -58,6 +64,7 @@ def display_extract_data_tab():
         - ✅ Invoices
         - ✅ Statements
         - ✅ Bills
+        - ✅ Receipts
         """)
 
     # Handle reprocessing case - if model changed and we have stored file bytes
@@ -92,15 +99,29 @@ def display_extract_data_tab():
                     # Reprocessing case - already have bytes from above
                     logger.info(f"Reprocessing file: {filename}")
 
-                # Convert PDF to image
-                status.update(
-                    label="Converting PDF to image...", state="running", expanded=True
+                # Process file (PDF or image)
+                file_extension = filename.split('.')[-1].lower()
+                file_type = next(
+                    (ftype for ftype, extensions in ALLOWED_FILE_TYPES.items() 
+                     if file_extension in extensions),
+                    None
                 )
-                images = pdf_to_image(io.BytesIO(pdf_bytes))
-
+                
+                if not file_type:
+                    st.error(f"❌ Unsupported file type: {file_extension}")
+                    return
+                
+                status.update(
+                    label=f"Converting {file_type.upper()} to image...",
+                    state="running",
+                    expanded=True
+                )
+                
+                images = process_file_to_images(io.BytesIO(pdf_bytes), file_type)
+                
                 if not images:
                     st.error(
-                        "❌ Failed to convert PDF to image. Please try another file."
+                        f"❌ Failed to process {file_type.upper()} file. Please try another file."
                     )
                 else:
                     # Get current model
